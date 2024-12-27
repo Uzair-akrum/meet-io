@@ -2,36 +2,58 @@ import { NextResponse } from 'next/server'
 import { writeFile } from 'fs/promises'
 import path from 'path'
 import fs from 'fs'
+import { Readable } from 'stream'
+
+export const config = {
+  api: {
+    bodyParser: false,
+  }
+}
 
 export async function POST(req: Request) {
-  const data = await req.formData()
-  const file: File | null = data.get('file') as unknown as File
+  const contentType = req.headers.get('content-type') || ''
 
-  if (!file) {
-    return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
+  if (!contentType.includes('multipart/form-data')) {
+    return NextResponse.json({ error: 'Content type must be multipart/form-data' }, { status: 400 })
   }
 
-  const bytes = await file.arrayBuffer()
-  const buffer = Buffer.from(bytes)
-
-  // Create uploads directory if it doesn't exist
-  const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
   try {
+    const formData = await req.formData()
+    const file: File | null = formData.get('file') as unknown as File
+
+    if (!file) {
+      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
+    }
+
+    // Create uploads directory
+    const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
     await fs.promises.mkdir(uploadsDir, { recursive: true })
+
+    // Create file path
+    const timestamp = Date.now()
+    const filename = `${timestamp}-${file.name}`
+    const filepath = path.join(uploadsDir, filename)
+
+    // Create write stream
+    const writeStream = fs.createWriteStream(filepath)
+
+    // Convert File to Readable stream
+    const fileStream = Readable.from(Buffer.from(await file.arrayBuffer()))
+
+    // Pipe the file stream to write stream
+    await new Promise((resolve, reject) => {
+      fileStream.pipe(writeStream)
+        .on('finish', resolve)
+        .on('error', reject)
+    })
+
+    return NextResponse.json({
+      url: `/uploads/${filename}`,
+      filepath: filepath
+    })
   } catch (error) {
-    console.error('Error creating uploads directory:', error)
+    console.error('Upload error:', error)
+    return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
   }
-
-  // Save file with timestamp to prevent naming conflicts
-  const timestamp = Date.now()
-  const filename = `${timestamp}-${file.name}`
-  const filepath = path.join(uploadsDir, filename)
-  await writeFile(filepath, buffer)
-
-  // Return the local file path that we'll use for transcription
-  return NextResponse.json({
-    url: `/uploads/${filename}`,
-    filepath: filepath
-  })
 }
 
