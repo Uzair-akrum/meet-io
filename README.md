@@ -9,7 +9,7 @@ Meet.io is a modern web application built with Next.js that provides real-time a
 - 📝 Real-time transcription progress tracking
 - 💬 AI-powered chat interface for transcript analysis
 - 📊 Automatic summary generation
-- 🔒 User authentication system
+
 
 ## Prerequisites
 - Node.js (version referenced in package.json)
