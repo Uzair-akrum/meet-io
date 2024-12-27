@@ -41,6 +41,8 @@ export async function POST(req: Request) {
       'https://api.assemblyai.com/v2/transcript',
       {
         audio_url: uploadResponse.data.upload_url,
+        speaker_labels: true,
+
       },
       {
         headers: {
